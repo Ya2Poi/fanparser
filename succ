@@ -1,0 +1,63 @@
+from operator import itemgetter
+
+from bs4 import BeautifulSoup
+import requests
+import openpyxl
+# импорт библиотек
+
+def parser():
+    URL = 'https://youla.ru/all/kompyutery/komplektuyushchie?q=rx%20580'
+    HEADERS = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.198 YaBrowser/20.11.3.183 Yowser/2.5 Safari/537.36'}
+    PRICE_max = 8000
+    PRICE_min = 3000
+    BAN_WORD = 'Ферма'
+    # обозначение переменных
+
+    response = requests.get(URL, headers=HEADERS)
+    soup = BeautifulSoup(response.text, 'lxml')
+    items = soup.find_all('li', 'product_item')
+    cards = []
+    # заполнение всеми предложениями
+
+    for item in items:
+        cards.append({
+            'title': item.find('div', class_='product_item__title').get_text(strip=True),
+            'price': item.find('div', class_='product_item__description').get_text(strip=True),
+            'date': item.find('span', class_='hidden-xs').get_text(strip=True),
+            'link': item.find('a').get('href')
+            # нахождение нужных параметров
+        })
+
+        i = 3
+        for card in cards:
+            if not (BAN_WORD in card['title']):
+                if int(card['price'].replace('₽руб.', '').replace(' ', '')) <= PRICE_max:
+                    if int(card['price'].replace('₽руб.', '').replace(' ', '')) >= PRICE_min:
+                        sheet[i][0].value = card['title']
+                        sheet[i][1].value = card['price'].replace('руб.', '')  # занесение в таблицу
+                        sheet[i][2].value = card['date']
+                        sheet[i][3].value = 'https://youla.ru'+card['link']
+                        i += 2
+
+
+book = openpyxl.Workbook()
+sheet = book.active
+# создание таблицы
+
+sheet['A1'] = 'Название'
+sheet['B1'] = 'Цена'
+sheet['C1'] = 'Дата'
+sheet['D1'] = 'Ссылка'
+# названия столбцов
+
+sheet.column_dimensions['A'].width = 60
+sheet.column_dimensions['B'].width = 20
+sheet.column_dimensions['C'].width = 20
+sheet.column_dimensions['D'].width = 10
+# настройка размеров
+
+parser()
+
+book.save('Cards.xlsx')
+book.close()
